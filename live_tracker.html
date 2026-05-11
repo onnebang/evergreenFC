@@ -3,12 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>에버그린 FC 전술 보드 & 트래커</title>
+    <title>에버그린 FC - K5/K7 실시간 매치 트래커</title>
     <style>
+        :root {
+            --bg-dark: #1a202c;
+            --bg-panel: #2d3748;
+            --text-main: #e2e8f0;
+            --accent-gold: #ecc94b;
+            --pitch-green: #276749;
+            --us-blue: #3182ce;
+            --opp-red: #e53e3e;
+            --border-color: #4a5568;
+        }
+
         body {
             font-family: 'Pretendard', sans-serif;
-            background-color: #1a202c;
-            color: #e2e8f0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
             margin: 0;
             height: 100vh;
             display: flex;
@@ -17,129 +28,178 @@
             overflow: hidden;
         }
 
-        /* 3단 레이아웃 구조 */
-        .layout-left { width: 20%; background: #2d3748; padding: 15px; border-right: 2px solid #4a5568; display: flex; flex-direction: column; }
-        .layout-center { width: 50%; background: #276749; position: relative; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .layout-right { width: 30%; background: #1a202c; padding: 15px; border-left: 2px solid #4a5568; display: flex; flex-direction: column; }
+        /* 3단 레이아웃 (20% - 50% - 30%) */
+        .layout-left { width: 20%; background: var(--bg-panel); padding: 15px; border-right: 2px solid var(--border-color); display: flex; flex-direction: column; z-index: 10;}
+        .layout-center { width: 50%; background: #1a202c; padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .layout-right { width: 30%; background: var(--bg-panel); padding: 15px; border-left: 2px solid var(--border-color); display: flex; flex-direction: column; z-index: 10;}
 
-        /* 공통 헤더 */
-        h2 { font-size: 16px; color: #ecc94b; margin-top: 0; text-align: center; border-bottom: 1px solid #4a5568; padding-bottom: 10px; }
+        h2 { font-size: 16px; color: var(--accent-gold); margin-top: 0; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
 
-        /* 1. Left: 벤치 자원 */
-        .bench-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        /* --- 1. Left: 벤치 자원 --- */
+        .bench-area { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .bench-instruction { font-size: 12px; color: #a0aec0; text-align: center; margin-bottom: 5px; }
+        .bench-list { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; min-height: 200px; padding-bottom: 20px;}
         .player-card {
-            background: #4a5568; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold; cursor: grab; transition: 0.2s;
+            background: #4a5568; padding: 10px 5px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 14px; cursor: grab; transition: 0.2s; border: 2px solid transparent;
         }
         .player-card:active { cursor: grabbing; opacity: 0.7; }
+        /* 경기장에 올라간 선수는 벤치에서 숨김 처리용 클래스 */
+        .on-pitch { display: none !important; }
 
-        /* 2. Center: 경기장 (Pitch) */
+        /* --- 2. Center: 경기장 및 점유율 --- */
+        .top-info { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 15px; z-index: 2;}
+        
+        /* 점유율 바 */
+        .possession-bar {
+            width: 90%; height: 24px; background: #4a5568; border-radius: 12px; display: flex; overflow: hidden; font-size: 13px; font-weight: 900; text-align: center; line-height: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .poss-us { background: var(--us-blue); color: white; width: 50%; transition: width 0.4s ease; }
+        .poss-opp { background: var(--opp-red); color: white; width: 50%; transition: width 0.4s ease; }
+
+        /* 경기장 (Pitch) */
+        .pitch-container { width: 85%; flex: 1; position: relative; margin-bottom: 10px; }
         .pitch {
-            width: 90%; height: 80%; background: #2f855a; border: 2px solid white; position: relative; border-radius: 5px;
-            /* 간단한 경기장 라인 드로잉 */
-            background-image: 
-                linear-gradient(to bottom, transparent 49.5%, white 49.5%, white 50.5%, transparent 50.5%),
-                radial-gradient(circle at 50% 50%, transparent 15%, white 15%, white 16%, transparent 16%);
+            width: 100%; height: 100%; background: var(--pitch-green); border: 3px solid white; border-radius: 5px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.5); overflow: hidden;
         }
-        .pitch-dropzone { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        /* 경기장 라인 그리기 */
+        .pitch::before {
+            content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: white; transform: translateY(-50%);
+        }
+        .pitch::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 20%; aspect-ratio: 1/1; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%);
+        }
+        .penalty-area-top { position: absolute; top: 0; left: 25%; width: 50%; height: 15%; border: 2px solid white; border-top: none; }
+        .penalty-area-bottom { position: absolute; bottom: 0; left: 25%; width: 50%; height: 15%; border: 2px solid white; border-bottom: none; }
         
-        /* 경기장 위 선수 토큰 */
+        /* 공격 방향 화살표 (배경) */
+        .attack-arrow {
+            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+            font-size: 150px; color: rgba(255, 255, 255, 0.15); font-weight: bold; pointer-events: none; z-index: 1;
+        }
+
+        /* 선수 토큰 */
         .player-token {
-            width: 40px; height: 40px; background: #ecc94b; color: #1a202c; border-radius: 50%;
-            position: absolute; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;
-            transform: translate(-50%, -50%); cursor: pointer; border: 2px solid #2d3748;
+            width: 44px; height: 44px; background: var(--accent-gold); color: var(--bg-dark); border-radius: 50%;
+            position: absolute; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900;
+            transform: translate(-50%, -50%); cursor: pointer; border: 3px solid var(--bg-dark); z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.4); transition: transform 0.1s, box-shadow 0.1s;
         }
-        .player-token.selected { background: #e53e3e; color: white; border-color: white; transform: translate(-50%, -50%) scale(1.2); z-index: 10; }
-        .token-pos { position: absolute; bottom: -18px; font-size: 10px; color: white; background: rgba(0,0,0,0.6); padding: 2px 4px; border-radius: 3px; }
+        .player-token:hover { transform: translate(-50%, -50%) scale(1.1); }
+        .player-token.selected { background: white; color: var(--us-blue); border-color: var(--us-blue); transform: translate(-50%, -50%) scale(1.2); z-index: 20; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
 
-        /* 상단 포메이션 텍스트 & 점유율바 */
-        .formation-display { font-size: 24px; font-weight: 900; color: white; margin-bottom: 15px; letter-spacing: 2px; }
-        .auto-possession-bar {
-            width: 90%; height: 20px; background: #4a5568; border-radius: 10px; margin-bottom: 15px; display: flex; overflow: hidden; font-size: 12px; font-weight: bold; text-align: center; line-height: 20px;
+        /* --- 3. Right: 문자 중계 및 액션 패널 --- */
+        .action-instruction { font-size: 12px; color: var(--accent-gold); text-align: center; margin-bottom: 10px; font-weight: bold; }
+        .action-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px;
         }
-        .poss-us { background: #3182ce; color: white; width: 50%; transition: width 0.3s; }
-        .poss-opp { background: #e53e3e; color: white; width: 50%; transition: width 0.3s; }
-
-        /* 3. Right: 문자 중계 및 액션 패널 */
-        .action-panel { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 15px; }
         .action-btn {
-            background: #4a5568; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; opacity: 0.5; pointer-events: none;
+            background: #4a5568; color: white; border: none; padding: 12px 5px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; opacity: 0.4; pointer-events: none; transition: 0.2s;
         }
-        .action-panel.ready .action-btn { opacity: 1; pointer-events: auto; }
-        .btn-pass { background: #38a169; } .btn-shot { background: #dd6b20; } .btn-opp { background: #e53e3e; opacity: 1 !important; pointer-events: auto !important; }
+        /* 선수 선택 시 버튼 활성화 */
+        .layout-right.ready .action-btn { opacity: 1; pointer-events: auto; }
+        .layout-right.ready .action-btn:active { transform: scale(0.95); }
         
-        .log-box { flex: 1; background: #2d3748; border-radius: 6px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-        .log-item { font-size: 13px; padding: 6px; border-left: 3px solid #3182ce; background: #1a202c; }
-        .log-item.opp { border-left-color: #e53e3e; }
+        /* 버튼 색상 분류 */
+        .btn-good { background: #38a169; } /* 패스성공, 드리블성공 등 */
+        .btn-atk { background: #dd6b20; } /* 슈팅, 유효슈팅, 크로스 */
+        .btn-goal { background: #d69e2e; color: #1a202c; } /* 득점, 어시 */
+        .btn-bad { background: #e53e3e; } /* 패스실패, 상대볼전환 */
+        .btn-neutral { background: #718096; } /* 사이드아웃 */
+        
+        /* 예외: 상대볼 전환, 사이드 아웃은 선수 선택 안해도 누를 수 있게 할 경우 (여기선 일관성을 위해 선택 후 누르기로 통일) */
 
-        /* 포지션 선택 모달 */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7);
-            display: none; justify-content: center; align-items: center; z-index: 100;
-        }
-        .modal-content { background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 300px; }
-        .modal-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
-        .modal-btn { background: #3182ce; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .log-container { flex: 1; background: var(--bg-dark); border-radius: 8px; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-color); }
+        .log-item { font-size: 13px; padding: 8px; border-radius: 4px; background: var(--bg-panel); border-left: 4px solid var(--us-blue); animation: fadeIn 0.3s ease; }
+        .log-item.bad { border-left-color: var(--opp-red); }
+        .log-item.goal { border-left-color: var(--accent-gold); background: #423500; }
+        .log-time { color: var(--accent-gold); font-weight: bold; margin-right: 5px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
     <div class="layout-left">
-        <h2>벤치 / 교체 자원 (20%)</h2>
-        <div class="bench-list" id="benchList">
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_1">민지</div>
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_2">화인</div>
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_3">수연</div>
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_4">효린(GK)</div>
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_5">혜은</div>
-            <div class="player-card" draggable="true" ondragstart="dragStart(event)" id="p_6">인선</div>
-        </div>
-    </div>
-
-    <div class="layout-center">
-        <div class="formation-display" id="formationText">포메이션: 대기중</div>
-        
-        <div class="auto-possession-bar">
-            <div class="poss-us" id="barUs">우리볼 50%</div>
-            <div class="poss-opp" id="barOpp">상대볼 50%</div>
-        </div>
-
-        <div class="pitch" id="pitchArea" ondragover="allowDrop(event)" ondrop="dropOnPitch(event)">
-            </div>
-    </div>
-
-    <div class="layout-right">
-        <h2>문자 중계 및 기록 (30%)</h2>
-        
-        <div class="action-panel" id="actionPanel">
-            <button class="action-btn btn-pass" onclick="logAction('패스 성공', 'us')">패스 성공 ✔️</button>
-            <button class="action-btn btn-shot" onclick="logAction('슈팅', 'us')">슈팅 슛 ⚽</button>
-            <button class="action-btn btn-pass" onclick="logAction('경합 승리', 'us')">경합 승리 ⚔️</button>
-            <button class="action-btn btn-opp" onclick="logAction('상대 볼 획득', 'opp')">상대 볼 전환 🛑</button>
-        </div>
-
-        <div class="log-box" id="logBox">
-            <div class="log-item">[00:00] 경기 시작</div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="positionModal">
-        <div class="modal-content">
-            <h3>포지션 상세 선택</h3>
-            <p id="modalPlayerName" style="color:#ecc94b; font-weight:bold;"></p>
-            <p style="font-size:12px; color:#a0aec0;">해당 위치의 정확한 역할을 선택하세요.</p>
-            <div class="modal-buttons" id="modalButtons">
+        <h2>대기 명단 (18인)</h2>
+        <div class="bench-area">
+            <div class="bench-instruction">선수를 경기장으로 드래그 하세요</div>
+            <div class="bench-list" id="benchList" ondragover="allowDrop(event)" ondrop="dropOnBench(event)">
                 </div>
         </div>
     </div>
 
-    <script>
-        // --- 1. 드래그 앤 드롭 및 포메이션 로직 ---
-        let draggedPlayerId = null;
-        let tempDropData = null; // 모달을 띄우기 전 임시 저장 데이터
-        const pitchData = []; // 경기장 위 선수 정보 저장 배열
+    <div class="layout-center">
+        <div class="top-info">
+            <div class="possession-bar">
+                <div class="poss-us" id="barUs">우리볼 50%</div>
+                <div class="poss-opp" id="barOpp">상대볼 50%</div>
+            </div>
+        </div>
 
+        <div class="pitch-container">
+            <div class="pitch" id="pitchArea" ondragover="allowDrop(event)" ondrop="dropOnPitch(event)">
+                <div class="attack-arrow">⬆</div>
+                <div class="penalty-area-top"></div>
+                <div class="penalty-area-bottom"></div>
+                </div>
+        </div>
+    </div>
+
+    <div class="layout-right" id="rightPanel">
+        <h2>실시간 기록</h2>
+        <div class="action-instruction" id="selectedPlayerText">경기장 위 선수를 터치하세요</div>
+        
+        <div class="action-grid">
+            <button class="action-btn btn-good" onclick="logAction('패스 성공', 5, 'good')">패스 성공 ✔️</button>
+            <button class="action-btn btn-bad" onclick="logAction('패스 실패', -10, 'bad')">패스 실패 ❌</button>
+            <button class="action-btn btn-good" onclick="logAction('드리블 성공', 5, 'good')">드리블 성공 🏃‍♂️</button>
+            <button class="action-btn btn-bad" onclick="logAction('드리블 실패', -5, 'bad')">드리블 실패 🛑</button>
+            <button class="action-btn btn-atk" onclick="logAction('크로스 시도', 5, 'good')">크로스 시도 ↗️</button>
+            <button class="action-btn btn-neutral" onclick="logAction('사이드 아웃', -5, 'bad')">사이드 아웃 🏳️</button>
+            <button class="action-btn btn-atk" onclick="logAction('슈팅', 10, 'good')">슈팅 슛 ⚽</button>
+            <button class="action-btn btn-atk" onclick="logAction('유효슈팅', 15, 'good')">유효슈팅 🎯</button>
+            <button class="action-btn btn-goal" onclick="logAction('득점', 20, 'goal')">득점 GOAL! 🏆</button>
+            <button class="action-btn btn-goal" onclick="logAction('어시스트', 10, 'goal')">어시스트 🤝</button>
+            <button class="action-btn btn-bad" style="grid-column: span 2;" onclick="logAction('상대볼 전환', -20, 'bad')">상대팀 볼 획득 (턴오버) 🚨</button>
+        </div>
+
+        <div class="log-container" id="logBox">
+            <div class="log-item"><span class="log-time">[00:00]</span> 경기 시작 (공격방향 ⬆)</div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 초기 데이터 세팅 ---
+        const players = [
+            "김민지", "박화인", "이수연", "최효린(GK)", "정혜은", "강인선", 
+            "조가은", "윤서윤", "임해수", "한선민", "송은재", "오혜린", 
+            "유은지", "백지현", "안예진", "심소연", "문지윤", "구하라"
+        ];
+
+        let draggedElementId = null;
+        let selectedPlayerName = null;
+        let selectedPlayerToken = null;
+        
+        // 점유율 변수 (50:50 시작)
+        let usPoss = 50;
+        let oppPoss = 50;
+
+        // 벤치 렌더링
+        const benchList = document.getElementById('benchList');
+        players.forEach((name, index) => {
+            const div = document.createElement('div');
+            div.className = 'player-card';
+            div.draggable = true;
+            div.id = 'player_' + index;
+            div.innerText = name;
+            div.dataset.name = name;
+            div.addEventListener('dragstart', dragStart);
+            benchList.appendChild(div);
+        });
+
+        // --- 2. 드래그 앤 드롭 로직 ---
         function dragStart(e) {
-            draggedPlayerId = e.target.id;
+            draggedElementId = e.target.id;
+            e.dataTransfer.effectAllowed = "move";
         }
 
         function allowDrop(e) {
@@ -148,160 +208,125 @@
 
         function dropOnPitch(e) {
             e.preventDefault();
-            if (!draggedPlayerId) return;
+            if (!draggedElementId) return;
 
             const pitch = document.getElementById('pitchArea');
             const rect = pitch.getBoundingClientRect();
             
-            // 퍼센티지(%) 좌표 계산 (반응형 대응)
+            // 드롭 위치 퍼센테이지 계산 (반응형 유지)
             let xPerc = ((e.clientX - rect.left) / rect.width) * 100;
             let yPerc = ((e.clientY - rect.top) / rect.height) * 100;
 
-            const playerElem = document.getElementById(draggedPlayerId);
-            const playerName = playerElem.innerText;
+            const originalElem = document.getElementById(draggedElementId);
+            const playerName = originalElem.dataset.name;
 
-            // 좌표에 따른 추천 포지션 후보 산출 로직
-            let options = [];
-            if (yPerc < 33) {
-                // 수비 진영 (위쪽이 수비라고 가정)
-                if (xPerc < 30) options = ['LB', 'LWB'];
-                else if (xPerc > 70) options = ['RB', 'RWB'];
-                else options = ['CB', 'SW', 'GK'];
-            } else if (yPerc < 66) {
-                // 미드 진영
-                if (xPerc < 30) options = ['LM', 'LW'];
-                else if (xPerc > 70) options = ['RM', 'RW'];
-                else options = ['CM', 'CDM', 'CAM'];
-            } else {
-                // 공격 진영
-                if (xPerc < 30) options = ['LW', 'LF'];
-                else if (xPerc > 70) options = ['RW', 'RF'];
-                else options = ['ST', 'CF'];
+            // 벤치에서 온 경우 (새 토큰 생성 및 벤치 카드 숨김)
+            if (originalElem.classList.contains('player-card')) {
+                originalElem.classList.add('on-pitch'); // 벤치에서 숨김
+
+                const token = document.createElement('div');
+                token.className = 'player-token';
+                token.id = 'token_' + draggedElementId;
+                token.dataset.refId = draggedElementId; // 벤치 카드와 연결
+                token.dataset.name = playerName;
+                token.innerText = playerName.substring(0, 2); // 2글자만 표시
+                token.draggable = true;
+                token.addEventListener('dragstart', dragStart);
+                token.addEventListener('click', () => selectPlayer(token, playerName));
+                
+                token.style.left = xPerc + '%';
+                token.style.top = yPerc + '%';
+                pitch.appendChild(token);
+            } 
+            // 경기장 내에서 이동한 경우
+            else if (originalElem.classList.contains('player-token')) {
+                originalElem.style.left = xPerc + '%';
+                originalElem.style.top = yPerc + '%';
             }
-
-            // 모달 띄우기
-            tempDropData = { id: draggedPlayerId, name: playerName, x: xPerc, y: yPerc, elem: playerElem };
-            showPositionModal(playerName, options);
+            draggedElementId = null;
         }
 
-        // --- 2. 포지션 미세 조정 모달 로직 ---
-        function showPositionModal(name, options) {
-            document.getElementById('modalPlayerName').innerText = name + " 선수의 역할";
-            const btnContainer = document.getElementById('modalButtons');
-            btnContainer.innerHTML = ''; // 초기화
+        // 벤치로 다시 드롭 (교체 아웃)
+        function dropOnBench(e) {
+            e.preventDefault();
+            if (!draggedElementId) return;
 
-            options.forEach(pos => {
-                let btn = document.createElement('button');
-                btn.className = 'modal-btn';
-                btn.innerText = pos;
-                btn.onclick = () => confirmPosition(pos);
-                btnContainer.appendChild(btn);
-            });
-
-            document.getElementById('positionModal').style.display = 'flex';
+            const elem = document.getElementById(draggedElementId);
+            // 경기장 토큰을 벤치로 끌어다 놓은 경우
+            if (elem.classList.contains('player-token')) {
+                const refId = elem.dataset.refId;
+                document.getElementById(refId).classList.remove('on-pitch'); // 벤치 카드 다시 표시
+                elem.remove(); // 경기장 토큰 삭제
+                
+                // 선택된 선수였다면 초기화
+                if (selectedPlayerToken === elem) deselectPlayer();
+            }
+            draggedElementId = null;
         }
 
-        function confirmPosition(selectedPosition) {
-            document.getElementById('positionModal').style.display = 'none';
-
-            // 1. 경기장에 토큰 생성
-            createToken(tempDropData.name, selectedPosition, tempDropData.x, tempDropData.y);
-            
-            // 2. 벤치에서 해당 선수 숨기기 (또는 삭제)
-            tempDropData.elem.style.display = 'none';
-            
-            // 3. 포메이션 텍스트 업데이트 
-            updateFormationText();
-
-            draggedPlayerId = null;
-            tempDropData = null;
-        }
-
-        function createToken(name, pos, x, y) {
-            const pitch = document.getElementById('pitchArea');
-            const token = document.createElement('div');
-            token.className = 'player-token';
-            token.style.left = x + '%';
-            token.style.top = y + '%';
-            token.innerText = name.substring(0, 2); // 이름 2글자만
-            token.dataset.name = name;
-            token.dataset.pos = pos;
-
-            const posLabel = document.createElement('div');
-            posLabel.className = 'token-pos';
-            posLabel.innerText = pos;
-            token.appendChild(posLabel);
-
-            // 토큰 클릭 시 (선택 및 야매 점유율 발동)
-            token.onclick = () => selectPitchPlayer(token, name, pos);
-            
-            pitch.appendChild(token);
-            pitchData.push({ name, pos, x, y, elem: token });
-        }
-
-        function updateFormationText() {
-            // 야매 포메이션 계산 (DF수 - MF수 - FW수)
-            let df = 0, mf = 0, fw = 0;
-            pitchData.forEach(p => {
-                if (p.pos.includes('B')) df++;
-                else if (p.pos.includes('M')) mf++;
-                else if (p.pos.includes('F') || p.pos.includes('S') || p.pos.includes('W')) fw++;
-            });
-            document.getElementById('formationText').innerText = `포메이션: ${df}-${mf}-${fw}`;
-        }
-
-        // --- 3. 스마트 터치 & 야매 점유율 로직 ---
-        let selectedToken = null;
-        let usPossTime = 50; // 초기 50%
-        let oppPossTime = 50;
-
-        function selectPitchPlayer(token, name, pos) {
+        // --- 3. 선수 선택 및 액션 로직 ---
+        function selectPlayer(tokenElem, name) {
             // 기존 선택 해제
             document.querySelectorAll('.player-token').forEach(t => t.classList.remove('selected'));
             
-            token.classList.add('selected');
-            selectedToken = name;
-            document.getElementById('actionPanel').classList.add('ready');
-
-            // [야매 점유율 발동] 선수를 터치하는 순간 '우리 팀'이 공을 잡은 것으로 간주!
-            adjustPossession(true);
+            tokenElem.classList.add('selected');
+            selectedPlayerName = name;
+            selectedPlayerToken = tokenElem;
+            
+            // 우측 패널 활성화
+            document.getElementById('rightPanel').classList.add('ready');
+            document.getElementById('selectedPlayerText').innerHTML = `<span style="color:white; font-size:16px;">${name}</span> 선택됨`;
+            
+            // 선수를 터치하는 순간 미세하게 우리팀 점유율 상승 (자동화)
+            updatePossession(2); 
         }
 
-        function adjustPossession(isUs) {
-            if (isUs) {
-                if(usPossTime < 90) { usPossTime += 5; oppPossTime -= 5; }
-            } else {
-                if(oppPossTime < 90) { oppPossTime += 10; usPossTime -= 10; } // 상대가 뺏으면 팍 깎임
-            }
-            document.getElementById('barUs').style.width = usPossTime + '%';
-            document.getElementById('barUs').innerText = `우리볼 ${usPossTime}%`;
-            document.getElementById('barOpp').style.width = oppPossTime + '%';
-            document.getElementById('barOpp').innerText = `상대볼 ${oppPossTime}%`;
+        function deselectPlayer() {
+            document.querySelectorAll('.player-token').forEach(t => t.classList.remove('selected'));
+            selectedPlayerName = null;
+            selectedPlayerToken = null;
+            document.getElementById('rightPanel').classList.remove('ready');
+            document.getElementById('selectedPlayerText').innerText = "경기장 위 선수를 터치하세요";
         }
 
-        function logAction(action, team) {
+        // 액션 버튼 클릭 시 기록
+        function logAction(actionName, possChange, type) {
+            if (!selectedPlayerName && actionName !== '상대볼 전환') return;
+
+            // 시간 구하기 (실제 경기 타이머를 연동하면 좋지만, 여기서는 현재시간 활용)
+            const now = new Date();
+            const timeStr = `${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
             const logBox = document.getElementById('logBox');
             const logItem = document.createElement('div');
-            
-            let timeStr = new Date().toTimeString().split(' ')[0]; // 임시 시간
+            logItem.className = `log-item ${type}`;
 
-            if (team === 'us' && selectedToken) {
-                logItem.className = 'log-item';
-                logItem.innerHTML = `[${timeStr}] <b>${selectedToken}</b> - ${action}`;
-                adjustPossession(true); // 액션 성공시 우리 점유율 추가 상승
-                
-                // 선택 초기화
-                document.querySelectorAll('.player-token').forEach(t => t.classList.remove('selected'));
-                selectedToken = null;
-                document.getElementById('actionPanel').classList.remove('ready');
-            } else if (team === 'opp') {
-                logItem.className = 'log-item opp';
-                logItem.innerHTML = `[${timeStr}] <b>상대팀</b> - ${action}`;
-                adjustPossession(false); // 상대 볼로 전환
-                document.getElementById('actionPanel').classList.remove('ready');
+            if (actionName === '상대볼 전환') {
+                logItem.innerHTML = `<span class="log-time">[${timeStr}]</span> 🚨 <b>턴오버 (상대볼)</b>`;
+            } else {
+                logItem.innerHTML = `<span class="log-time">[${timeStr}]</span> <b>${selectedPlayerName}</b> - ${actionName}`;
             }
 
-            logBox.prepend(logItem);
+            logBox.prepend(logItem); // 최신 기록이 위로 오게
+
+            // 점유율 변동 적용
+            updatePossession(possChange);
+            
+            // 기록 후 빠른 다음 입력을 위해 선택 해제
+            deselectPlayer();
+        }
+
+        // 야매 점유율 체계 업데이트 (최대 100, 최소 0 제한)
+        function updatePossession(changeValue) {
+            usPoss += changeValue;
+            if(usPoss > 90) usPoss = 90; // 일방적이어도 90:10 한계 설정 (현실성)
+            if(usPoss < 10) usPoss = 10;
+            oppPoss = 100 - usPoss;
+
+            document.getElementById('barUs').style.width = usPoss + '%';
+            document.getElementById('barUs').innerText = `우리볼 ${usPoss}%`;
+            document.getElementById('barOpp').style.width = oppPoss + '%';
+            document.getElementById('barOpp').innerText = `상대볼 ${oppPoss}%`;
         }
     </script>
 </body>
